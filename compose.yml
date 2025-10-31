@@ -186,8 +186,8 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /opt/telegraf:/etc/telegraf
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ./configs/telegraf:/etc/telegraf
+    - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - 8125:8125
     restart: unless-stopped
