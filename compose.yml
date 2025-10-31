@@ -177,6 +177,3 @@ services:
       - 8080:5000
       - 8000:8000
     restart: always
-
-volumes:
-  monitoring:
