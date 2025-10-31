@@ -183,8 +183,8 @@ services:
   wg-easy:
     #environment:
     #  Optional:
-    #  - PORT=51821
-    #  - HOST=0.0.0.0
+      - PORT=51821
+      - HOST=192.168.1.25
     #  - INSECURE=false
 
     image: ghcr.io/wg-easy/wg-easy:15
