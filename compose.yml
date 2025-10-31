@@ -162,49 +162,21 @@ services:
     command: --interval 3600 --cleanup --scope scrypted
     dns:
       - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
-
-  influxdb:
-    image: influxdb:2.7
-    container_name: influxdb
+      
+  checkmk:
+    image: "checkmk/check-mk-raw:2.4.0-latest"
+    container_name: "monitoring"
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
+      - CMK_PASSWORD=mypassword
+      - TZ=Europe/Berlin
     volumes:
-      - /opt/influxdb/data:/var/lib/influxdb2
-      - /opt/influxdb/config:/etc/influxdb2
+      - monitoring:/omd/sites
+    tmpfs:
+      - /opt/omd/sites/cmk/tmp:uid=1000,gid=1000
     ports:
-      - 8086:8086
-    restart: unless-stopped
+      - 8080:5000
+      - 8000:8000
+    restart: always
 
-  telegraf:
-    image: telegraf:latest
-    container_name: telegraf
-    user: "telegraf:${DOCKER_GID}"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-    - ./configs/telegraf:/etc/telegraf
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-    ports:
-      - 8125:8125
-    restart: unless-stopped
-    depends_on:
-      - influxdb
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - /opt/grafana:/var/lib/grafana
-    ports:
-      - 3000:3000
-    restart: unless-stopped
-    depends_on:
-      - influxdb
+volumes:
+  monitoring:
