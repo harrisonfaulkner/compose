@@ -168,8 +168,8 @@ services:
     image: "checkmk/check-mk-raw:2.4.0-latest"
     container_name: "monitoring"
     environment:
-      - CMK_PASSWORD=mypassword
-      - TZ=Europe/Berlin
+      - CMK_PASSWORD=1qLU28QPSBm@PH7T
+      - TZ=Etc/UTC
     volumes:
       - monitoring:/omd/sites
     tmpfs:
