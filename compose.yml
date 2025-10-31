@@ -1,0 +1,176 @@
+services:
+
+  sonarr:
+    image: ghcr.io/hotio/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/sonarr:/config
+      - "nfsmountCC:/mnt/"
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+  radarr:
+    image: ghcr.io/hotio/radarr
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - "nfsmountCC:/mnt/"
+      - /opt/radarr:/config
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+
+  sabnzbd:
+    image: ghcr.io/hotio/sabnzbd
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/sabnzbd:/config
+      - "nfsmountCC:/mnt/"
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+
+
+  overseerr:
+    image: sctx/overseerr:latest
+    container_name: overseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Asia/Tokyo
+      - PORT=5055 #optional
+    ports:
+      - 5055:5055
+    volumes:
+      - /opt/overseerr:/app/config
+    restart: unless-stopped
+
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/prowlarr/data:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: freshrss
+    ports:
+      - "8585:80"
+    environment:
+      - TRUSTED_PROXY=10.10.10.20/32
+      - TZ=Etc/UTC
+      - CRON_MIN=*/20
+    volumes:
+      - /opt/freshrss/data:/var/www/FreshRSS/data
+      - /opt/freshrss/extensions:/var/www/FreshRSS/extensions
+    restart: unless-stopped
+
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - 8090:8090
+    volumes:
+      - ./beszel_data:/beszel_data
+      - ./beszel_socket:/beszel_socket
+
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./beszel_agent_data:/var/lib/beszel-agent
+      - ./beszel_socket:/beszel_socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      HUB_URL: http://localhost:8090
+      TOKEN: 1b1b-09d50680aa-487-22b0ba333
+      KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGWK6ZR10Lu2Syc2Nbcv1+W3ylMw2ai7NF+uUGsqnOYw"
+
+  homebridge:
+    image: homebridge/homebridge:latest
+    container_name: homebridge
+    restart: always
+    network_mode: host
+    volumes:
+      - ./volumes/homebridge:/homebridge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10mb"
+        max-file: "1"
+
+  scrypted:
+      environment:
+          - SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION=Bearer ${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
+          - SCRYPTED_WEBHOOK_UPDATE=http://localhost:10444/v1/update
+      image: ghcr.io/koush/scrypted
+      volumes:
+          - ./volume:/server/volume
+#      devices: [
+      container_name: scrypted
+      restart: unless-stopped
+      network_mode: host
+
+      # logging is noisy and will unnecessarily wear on flash storage.
+      # scrypted has per device in memory logging that is preferred.
+      # enable the log file if enhanced debugging is necessary.
+      logging:
+          driver: "none"
+          # driver: "json-file"
+          # options:
+          #     max-size: "10m"
+          #     max-file: "10"
+      labels:
+          - "com.centurylinklabs.watchtower.scope=scrypted"
+
+      # Use global DNS servers to avoid issues with some local DNS servers.
+      # particularly with npm registry, etc.
+      dns:
+          - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
+  watchtower:
+      environment:
+          - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
+          - WATCHTOWER_HTTP_API_UPDATE=true
+          - WATCHTOWER_SCOPE=scrypted
+          - WATCHTOWER_HTTP_API_PERIODIC_POLLS=${WATCHTOWER_HTTP_API_PERIODIC_POLLS:-true}
+      image: containrrr/watchtower
+      container_name: scrypted-watchtower
+      restart: unless-stopped
+      volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+      labels:
+          - "com.centurylinklabs.watchtower.scope=scrypted"
+      ports:
+          - 10444:8080
+      command: --interval 3600 --cleanup --scope scrypted
+      dns:
+            - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
+
+volumes:
+  nfsmountCC:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr=192.168.1.10,nolock,soft,rw
+      device: ":/mnt/hdd-storage01/hdd-storage01"
