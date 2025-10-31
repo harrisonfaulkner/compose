@@ -1,5 +1,12 @@
-services:
+volumes:
+  nfsmountCC:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr=192.168.1.10,nolock,soft,rw
+      device: ":/mnt/hdd-storage01/hdd-storage01"
 
+services:
   sonarr:
     image: ghcr.io/hotio/sonarr
     container_name: sonarr
@@ -13,6 +20,7 @@ services:
     ports:
       - 8989:8989
     restart: unless-stopped
+
   radarr:
     image: ghcr.io/hotio/radarr
     container_name: radarr
@@ -41,14 +49,13 @@ services:
       - 8080:8080
     restart: unless-stopped
 
-
   overseerr:
     image: sctx/overseerr:latest
     container_name: overseerr
     environment:
       - LOG_LEVEL=debug
       - TZ=Asia/Tokyo
-      - PORT=5055 #optional
+      - PORT=5055
     ports:
       - 5055:5055
     volumes:
@@ -121,49 +128,82 @@ services:
         max-file: "1"
 
   scrypted:
-      environment:
-          - SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION=Bearer ${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
-          - SCRYPTED_WEBHOOK_UPDATE=http://localhost:10444/v1/update
-      image: ghcr.io/koush/scrypted
-      volumes:
-          - ./volume:/server/volume
-#      devices: [
-      container_name: scrypted
-      restart: unless-stopped
-      network_mode: host
-      logging:
-          driver: "none"
-      labels:
-          - "com.centurylinklabs.watchtower.scope=scrypted"
-      dns:
-          - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
+    environment:
+      - SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION=Bearer ${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
+      - SCRYPTED_WEBHOOK_UPDATE=http://localhost:10444/v1/update
+    image: ghcr.io/koush/scrypted
+    volumes:
+      - ./volume:/server/volume
+    container_name: scrypted
+    restart: unless-stopped
+    network_mode: host
+    logging:
+      driver: "none"
+    labels:
+      - "com.centurylinklabs.watchtower.scope=scrypted"
+    dns:
+      - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
+
   watchtower:
-      environment:
-          - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
-          - WATCHTOWER_HTTP_API_UPDATE=true
-          - WATCHTOWER_SCOPE=scrypted
-          - WATCHTOWER_HTTP_API_PERIODIC_POLLS=${WATCHTOWER_HTTP_API_PERIODIC_POLLS:-true}
-      image: containrrr/watchtower
-      container_name: scrypted-watchtower
-      restart: unless-stopped
-      volumes:
-          - /var/run/docker.sock:/var/run/docker.sock
-      labels:
-          - "com.centurylinklabs.watchtower.scope=scrypted"
-      ports:
-          - 10444:8080
-      command: --interval 3600 --cleanup --scope scrypted
-      dns:
-            - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
+    environment:
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN:-env_missing_fallback}
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_SCOPE=scrypted
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=${WATCHTOWER_HTTP_API_PERIODIC_POLLS:-true}
+    image: containrrr/watchtower
+    container_name: scrypted-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.scope=scrypted"
+    ports:
+      - 10444:8080
+    command: --interval 3600 --cleanup --scope scrypted
+    dns:
+      - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
 
-networks:
-  monitoring:
-    external: true  # Use an external network named 'monitoring'
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/influxdb/data:/var/lib/influxdb2
+      - /opt/influxdb/config:/etc/influxdb2
+    ports:
+      - 8086:8086
+    restart: unless-stopped
 
-volumes:
-  nfsmountCC:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: nfsvers=4,addr=192.168.1.10,nolock,soft,rw
-      device: ":/mnt/hdd-storage01/hdd-storage01"
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/telegraf:/etc/telegraf
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 8125:8125
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /opt/grafana:/var/lib/grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    depends_on:
+      - influxdb
