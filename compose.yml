@@ -180,6 +180,7 @@ services:
   telegraf:
     image: telegraf:latest
     container_name: telegraf
+    user: "telegraf:${DOCKER_GID}"
     environment:
       - PUID=1000
       - PGID=1000
