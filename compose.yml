@@ -182,7 +182,7 @@ services:
     
   wg-easy:
     #environment:
-    Optional:
+    #Optional:
     - PORT=51821
     - HOST=192.168.1.25
     #  - INSECURE=false
