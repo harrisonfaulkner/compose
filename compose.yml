@@ -131,21 +131,10 @@ services:
       container_name: scrypted
       restart: unless-stopped
       network_mode: host
-
-      # logging is noisy and will unnecessarily wear on flash storage.
-      # scrypted has per device in memory logging that is preferred.
-      # enable the log file if enhanced debugging is necessary.
       logging:
           driver: "none"
-          # driver: "json-file"
-          # options:
-          #     max-size: "10m"
-          #     max-file: "10"
       labels:
           - "com.centurylinklabs.watchtower.scope=scrypted"
-
-      # Use global DNS servers to avoid issues with some local DNS servers.
-      # particularly with npm registry, etc.
       dns:
           - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
   watchtower:
