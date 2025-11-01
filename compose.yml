@@ -15,13 +15,19 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
     volumes:
-      - /opt/sonarr:/config
+      - /opt/sonarr/config:/config
       - "nfsmountCC:/mnt/"
     ports:
       - 8989:8989
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   radarr:
     image: ghcr.io/hotio/radarr
@@ -29,13 +35,19 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
     volumes:
+      - /opt/radarr/config:/config
       - "nfsmountCC:/mnt/"
-      - /opt/radarr:/config
     ports:
       - 7878:7878
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   sabnzbd:
     image: ghcr.io/hotio/sabnzbd
@@ -43,26 +55,38 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
     volumes:
-      - /opt/sabnzbd:/config
+      - /opt/sabnzbd/config:/config
       - "nfsmountCC:/mnt/"
     ports:
       - 8080:8080
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api?mode=version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   overseerr:
     image: sctx/overseerr:latest
     container_name: overseerr
     environment:
       - LOG_LEVEL=debug
-      - TZ=Asia/Tokyo
+      - TZ=America/Chicago
       - PORT=5055
     ports:
       - 5055:5055
     volumes:
-      - /opt/overseerr:/app/config
+      - /opt/overseerr/config:/app/config
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5055/api/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   prowlarr:
     image: ghcr.io/hotio/prowlarr
@@ -70,12 +94,18 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
     volumes:
-      - /opt/prowlarr/data:/config
+      - /opt/prowlarr/config:/config
     ports:
       - 9696:9696
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   freshrss:
     image: freshrss/freshrss:latest
@@ -84,12 +114,18 @@ services:
       - "8585:80"
     environment:
       - TRUSTED_PROXY=10.10.10.20/32
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
       - CRON_MIN=*/20
     volumes:
       - /opt/freshrss/data:/var/www/FreshRSS/data
       - /opt/freshrss/extensions:/var/www/FreshRSS/extensions
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/i/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   beszel:
     image: henrygd/beszel:latest
@@ -98,8 +134,14 @@ services:
     ports:
       - 8090:8090
     volumes:
-      - ./beszel_data:/beszel_data
-      - ./beszel_socket:/beszel_socket
+      - /opt/beszel/data:/beszel_data
+      - /opt/beszel/socket:/beszel_socket
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   beszel-agent:
     image: henrygd/beszel-agent:latest
@@ -107,8 +149,8 @@ services:
     restart: unless-stopped
     network_mode: host
     volumes:
-      - ./beszel_agent_data:/var/lib/beszel-agent
-      - ./beszel_socket:/beszel_socket
+      - /opt/beszel-agent/data:/var/lib/beszel-agent
+      - /opt/beszel/socket:/beszel_socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       LISTEN: /beszel_socket/beszel.sock
@@ -122,7 +164,7 @@ services:
     restart: always
     network_mode: host
     volumes:
-      - ./volumes/homebridge:/homebridge
+      - /opt/homebridge/data:/homebridge
     logging:
       driver: json-file
       options:
@@ -135,7 +177,7 @@ services:
       - SCRYPTED_WEBHOOK_UPDATE=http://localhost:10444/v1/update
     image: ghcr.io/koush/scrypted
     volumes:
-      - ./volume:/server/volume
+      - /opt/scrypted/volume:/server/volume
     container_name: scrypted
     restart: unless-stopped
     network_mode: host
@@ -164,13 +206,19 @@ services:
     command: --interval 3600 --cleanup --scope scrypted
     dns:
       - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
-      
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v1/update"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   checkmk:
     image: "checkmk/check-mk-raw:2.4.0-latest"
     container_name: "monitoring"
     environment:
       - CMK_PASSWORD=1qLU28QPSBm@PH7T
-      - TZ=Etc/UTC
+      - TZ=America/Chicago
     volumes:
       - monitoring:/omd/sites
     tmpfs:
@@ -179,7 +227,13 @@ services:
       - 9090:5000
       - 8000:8000
     restart: always
-    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/cmk/check_mk/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   wireguard:
     image: j4v3l/wireguard-dashboard:beta
     container_name: wireguard
@@ -187,33 +241,32 @@ services:
       - NET_ADMIN
       - SYS_MODULE
     environment:
-      - TZ=${TZ:-UTC}
+      - TZ=America/Chicago
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - WG_HOST=${WG_HOST:-auto}  # Server's public IP, 'auto' for automatic detection
-      - WG_PORT=${WG_PORT:-51820}  # WireGuard port
-      - WG_DASHBOARD_PORT=${WG_DASHBOARD_PORT:-10086}  # WGDashboard web interface port
-      - WG_DASHBOARD_HOST=${WG_DASHBOARD_HOST:-0.0.0.0}  # WGDashboard bind address
-      - WG_ALLOWED_IPS=${WG_ALLOWED_IPS:-0.0.0.0/0, ::/0}  # Allowed IPs for clients
-      - WG_PERSISTENT_KEEPALIVE=${WG_PERSISTENT_KEEPALIVE:-25}  # KeepAlive interval
-      - WG_DNS_SERVERS=${WG_DNS_SERVERS:-1.1.1.1,8.8.8.8}  # DNS servers for clients
-      - AUTO_UPDATE=${AUTO_UPDATE:-false}  # Enable automatic updates of packages
-      - UPDATE_DASHBOARD=${UPDATE_DASHBOARD:-false}  # Enable automatic updates of WGDashboard
+      - WG_HOST=${WG_HOST:-auto}
+      - WG_PORT=${WG_PORT:-51820}
+      - WG_DASHBOARD_PORT=${WG_DASHBOARD_PORT:-10086}
+      - WG_DASHBOARD_HOST=${WG_DASHBOARD_HOST:-0.0.0.0}
+      - WG_ALLOWED_IPS=${WG_ALLOWED_IPS:-0.0.0.0/0, ::/0}
+      - WG_PERSISTENT_KEEPALIVE=${WG_PERSISTENT_KEEPALIVE:-25}
+      - WG_DNS_SERVERS=${WG_DNS_SERVERS:-1.1.1.1,8.8.8.8}
+      - AUTO_UPDATE=${AUTO_UPDATE:-false}
+      - UPDATE_DASHBOARD=${UPDATE_DASHBOARD:-false}
     volumes:
-      - ./config:/etc/wireguard
-      - ./dashboard-data:/opt/WGDashboard/src/db
+      - /opt/wireguard/config:/etc/wireguard
+      - /opt/wireguard/dashboard-data:/opt/WGDashboard/src/db
     ports:
       - "${WG_PORT:-51820}:51820/udp"
       - "${WG_DASHBOARD_PORT:-10086}:10086/tcp"
     restart: unless-stopped
-    privileged: true  # Required for wireguard kernel module and network changes
+    privileged: true
     sysctls:
       - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1 
-    # Optional: pin the embedded WGDashboard version (tag/branch/commit)
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        WGDASHBOARD_REF: master
-
+      - net.ipv6.conf.all.forwarding=1
+    healthcheck:
+      test: ["CMD", "wg", "show"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
