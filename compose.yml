@@ -144,19 +144,20 @@ services:
       start_period: 40s
 
   beszel-agent:
-    image: henrygd/beszel-agent:latest
+    image: henrygd/beszel-agent
     container_name: beszel-agent
     restart: unless-stopped
     network_mode: host
     volumes:
-      - /opt/beszel-agent/data:/var/lib/beszel-agent
-      - /opt/beszel/socket:/beszel_socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./beszel_agent_data:/var/lib/beszel-agent
+      # monitor other disks / partitions by mounting a folder in /extra-filesystems
+      # - /mnt/disk/.beszel:/extra-filesystems/sda1:ro
     environment:
-      LISTEN: /beszel_socket/beszel.sock
-      HUB_URL: http://localhost:8090
-      TOKEN: 1b1b-09d50680aa-487-22b0ba333
-      KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGWK6ZR10Lu2Syc2Nbcv1+W3ylMw2ai7NF+uUGsqnOYw"
+      LISTEN: 45876
+      KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIvGdArM62pH6FgaFBekiwNwQG5j+3DJZw8uApgVbNOn'
+      TOKEN: 55b0995c-4e24-4eb0-86a6-04bc4ef626ac
+      HUB_URL: http://192.168.1.25:8090
 
   homebridge:
     image: homebridge/homebridge:latest
