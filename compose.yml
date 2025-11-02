@@ -9,6 +9,14 @@ volumes:
       device: ":/mnt/hdd-storage01/hdd-storage01"
 
 services:
+  nfs-health-check:
+    image: busybox
+    container_name: nfs-health-check
+    volumes:
+      - "nfsmountCC:/mnt/"
+    command: sh -c "ls /mnt/ && exit 0"
+    restart: "no"
+
   sonarr:
     image: ghcr.io/hotio/sonarr
     container_name: sonarr
@@ -22,6 +30,8 @@ services:
     ports:
       - 8989:8989
     restart: unless-stopped
+    depends_on:
+      - nfs-health-check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
       interval: 30s
@@ -42,6 +52,8 @@ services:
     ports:
       - 7878:7878
     restart: unless-stopped
+    depends_on:
+      - nfs-health-check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
       interval: 30s
@@ -62,6 +74,8 @@ services:
     ports:
       - 8080:8080
     restart: unless-stopped
+    depends_on:
+      - nfs-health-check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api?mode=version"]
       interval: 30s
