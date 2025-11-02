@@ -153,8 +153,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./beszel_agent_data:/var/lib/beszel-agent
-      # monitor other disks / partitions by mounting a folder in /extra-filesystems
-      # - /mnt/disk/.beszel:/extra-filesystems/sda1:ro
     environment:
       LISTEN: 45876
       KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIvGdArM62pH6FgaFBekiwNwQG5j+3DJZw8uApgVbNOn'
@@ -279,3 +277,58 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  phpipam-mariadb:
+    image: mariadb:latest
+    container_name: phpipam-mariadb
+    environment:
+      - MYSQL_ROOT_PASSWORD=${PHPIPAM_MYSQL_ROOT_PASSWORD}
+      - TZ=America/Chicago
+    volumes:
+      - /opt/phpipam/db:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  phpipam-web:
+    image: phpipam/phpipam-www:latest
+    container_name: phpipam-web
+    ports:
+      - "8081:80"
+    environment:
+      - TZ=America/Chicago
+      - IPAM_DATABASE_HOST=phpipam-mariadb
+      - IPAM_DATABASE_PASS=${PHPIPAM_DATABASE_PASSWORD}
+      - IPAM_DATABASE_WEBHOST=%
+    volumes:
+      - /opt/phpipam/logo:/phpipam/css/images/logo
+      - /opt/phpipam/ca:/usr/local/share/ca-certificates:ro
+    restart: unless-stopped
+    depends_on:
+      phpipam-mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  phpipam-cron:
+    image: phpipam/phpipam-cron:latest
+    container_name: phpipam-cron
+    environment:
+      - TZ=America/Chicago
+      - IPAM_DATABASE_HOST=phpipam-mariadb
+      - IPAM_DATABASE_PASS=${PHPIPAM_DATABASE_PASSWORD}
+      - SCAN_INTERVAL=1h
+    volumes:
+      - /opt/phpipam/ca:/usr/local/share/ca-certificates:ro
+    restart: unless-stopped
+    depends_on:
+      phpipam-mariadb:
+        condition: service_healthy
