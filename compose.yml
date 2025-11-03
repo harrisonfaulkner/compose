@@ -332,14 +332,3 @@ services:
     depends_on:
       phpipam-mariadb:
         condition: service_healthy
-  zabbix-proxy-mysql:
-    image: zabbix/zabbix-proxy-mysql:ubuntu-latest
-    container_name: zabbix-proxy
-    environment:
-      - DB_SERVER_HOST=docker-proxy
-      - MYSQL_USER=some-Admin
-      - MYSQL_PASSWORD=ky-Qif8Z
-      - ZBX_HOSTNAME=docker-proxy
-      - ZBX_SERVER_HOST=entitledosprey.zabbix.cloud:10051
-    init: true
-    restart: unless-stopped
