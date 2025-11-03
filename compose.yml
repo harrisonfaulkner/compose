@@ -333,7 +333,7 @@ services:
       phpipam-mariadb:
         condition: service_healthy
   zabbix-proxy-mysql:
-    image: zabbix/zabbix-proxy-mysql:tag
+    image: zabbix/zabbix-proxy-mysql:ubuntu-latest
     container_name: zabbix-proxy
     environment:
       - DB_SERVER_HOST=docker-proxy
