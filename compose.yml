@@ -70,6 +70,8 @@ services:
       - TZ=America/Chicago
     volumes:
       - /opt/sabnzbd/config:/config
+      - /media/processing/:/media/processing
+
       - "nfsmountCC:/mnt/"
     ports:
       - 8080:8080
