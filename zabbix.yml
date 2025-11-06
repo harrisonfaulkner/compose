@@ -30,7 +30,7 @@ services:
          max-file: "3"
 
    zabbix-proxy:
-     image: zabbix/zabbix-proxy-mysql:latest
+     image: zabbix/zabbix-proxy-mysql:ubuntu-7.0.19
      container_name: zabbix-proxy
      restart: unless-stopped
      environment:
