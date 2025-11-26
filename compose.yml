@@ -222,27 +222,6 @@ services:
       retries: 3
       start_period: 40s
 
-  checkmk:
-    image: "checkmk/check-mk-raw:2.4.0-latest"
-    container_name: "monitoring"
-    environment:
-      - CMK_PASSWORD=${CMK_PASSWORD}
-      - TZ=America/Chicago
-    volumes:
-      - monitoring:/omd/sites
-    tmpfs:
-      - /opt/omd/sites/cmk/tmp:uid=1000,gid=1000
-    ports:
-      - 9090:5000
-      - 8000:8000
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/cmk/check_mk/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
   wireguard:
     image: j4v3l/wireguard-dashboard:beta
     container_name: wireguard
@@ -361,6 +340,77 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  mysql:
+    image: mysql:8.0
+    container_name: zabbix-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - /opt/zabbix-mysql:/var/lib/mysql
+    networks:
+      - zabbix-network
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    container_name: zabbix-server
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "10051:10051"
+    volumes:
+      - /opt/zabbix-server:/var/lib/zabbix
+    depends_on:
+      - mysql
+    networks:
+      - zabbix-network
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    container_name: zabbix-web
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
+      PHP_TZ: ${PHP_TZ}
+    ports:
+      - "80:8080"
+    depends_on:
+      - mysql
+      - zabbix-server
+    networks:
+      - zabbix-network
+
+  zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-7.0-latest
+    container_name: zabbix-agent
+    restart: unless-stopped
+    environment:
+      ZBX_HOSTNAME: ${ZBX_HOSTNAME}
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
+    ports:
+      - "10050:10050"
+    depends_on:
+      - zabbix-server
+    networks:
+      - zabbix-network
+
 networks:
   kuma_network:
+    driver: bridge
+  zabbix-network:
     driver: bridge
