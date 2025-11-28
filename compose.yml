@@ -359,7 +359,7 @@ services:
       - zabbix-network
 
   zabbix-server:
-    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    image: zabbix/zabbix-server-mysql:alpine-7.4-latest
     container_name: zabbix-server
     restart: unless-stopped
     environment:
@@ -368,6 +368,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ZBX_WEBSERVICEURL: http://zabbix-web-service:10053/report
     ports:
       - "10051:10051"
     volumes:
@@ -378,7 +379,7 @@ services:
       - zabbix-network
 
   zabbix-web:
-    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.4-latest
     container_name: zabbix-web
     restart: unless-stopped
     environment:
@@ -397,7 +398,7 @@ services:
       - zabbix-network
 
   zabbix-agent:
-    image: zabbix/zabbix-agent:alpine-7.0-latest
+    image: zabbix/zabbix-agent:alpine-7.4-latest
     container_name: zabbix-agent
     restart: unless-stopped
     environment:
@@ -407,6 +408,19 @@ services:
       - "10050:10050"
     depends_on:
       - zabbix-server
+    networks:
+      - zabbix-network
+
+  zabbix-web-service:
+    image: zabbix/zabbix-web-service:alpine-7.4-latest
+    container_name: zabbix-web-service
+    restart: unless-stopped
+    environment:
+      ZBX_ALLOWEDIP: zabbix-server
+    ports:
+      - "10053:10053"
+    cap_add:
+      - SYS_ADMIN
     networks:
       - zabbix-network
 
