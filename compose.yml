@@ -203,7 +203,8 @@ services:
       - WATCHTOWER_HTTP_API_UPDATE=true
       - WATCHTOWER_SCOPE=scrypted
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=${WATCHTOWER_HTTP_API_PERIODIC_POLLS:-true}
-    image: containrrr/watchtower
+      - DOCKER_API_VERSION=1.44
+    image: containrrr/watchtower:latest
     container_name: scrypted-watchtower
     restart: unless-stopped
     volumes:
@@ -215,12 +216,6 @@ services:
     command: --interval 3600 --cleanup --scope scrypted
     dns:
       - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/update"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   wireguard:
     image: j4v3l/wireguard-dashboard:beta
@@ -293,7 +288,7 @@ services:
       phpipam-mariadb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -353,10 +348,15 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_bin
       - --default-authentication-plugin=mysql_native_password
+      - --ssl-ca=/etc/mysql/certs/ca-cert.pem
+      - --ssl-cert=/etc/mysql/certs/server-cert.pem
+      - --ssl-key=/etc/mysql/certs/server-key.pem
     volumes:
       - /opt/zabbix-mysql:/var/lib/mysql
+      - /tmp/mysql-certs:/etc/mysql/certs:ro
     networks:
-      - zabbix-network
+      zabbix-network:
+        ipv4_address: 172.20.0.2
 
   zabbix-server:
     image: zabbix/zabbix-server-mysql:alpine-7.4-latest
@@ -369,14 +369,18 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       ZBX_WEBSERVICEURL: http://zabbix-web-service:10053/report
+      ZBX_DBTLSCONNECT: required
+      ZBX_DBTLSCAFILE: /etc/mysql/certs/ca-cert.pem
     ports:
       - "10051:10051"
     volumes:
       - /opt/zabbix-server:/var/lib/zabbix
+      - /tmp/mysql-certs:/etc/mysql/certs:ro
     depends_on:
       - mysql
     networks:
-      - zabbix-network
+      zabbix-network:
+        ipv4_address: 172.20.0.3
 
   zabbix-web:
     image: zabbix/zabbix-web-nginx-mysql:alpine-7.4-latest
@@ -395,7 +399,8 @@ services:
       - mysql
       - zabbix-server
     networks:
-      - zabbix-network
+      zabbix-network:
+        ipv4_address: 172.20.0.4
 
   zabbix-web-service:
     image: zabbix/zabbix-web-service:alpine-7.4-latest
@@ -408,10 +413,14 @@ services:
     cap_add:
       - SYS_ADMIN
     networks:
-      - zabbix-network
+      zabbix-network:
+        ipv4_address: 172.20.0.5
 
 networks:
   kuma_network:
     driver: bridge
   zabbix-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
