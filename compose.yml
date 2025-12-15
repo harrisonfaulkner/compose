@@ -353,7 +353,7 @@ services:
       - --ssl-key=/etc/mysql/certs/server-key.pem
     volumes:
       - /opt/zabbix-mysql:/var/lib/mysql
-      - /tmp/mysql-certs:/etc/mysql/certs:ro
+      - /home/harrison/zabbix-certs:/etc/mysql/certs:ro
     networks:
       zabbix-network:
         ipv4_address: 172.20.0.2
@@ -375,7 +375,7 @@ services:
       - "10051:10051"
     volumes:
       - /opt/zabbix-server:/var/lib/zabbix
-      - /tmp/mysql-certs:/etc/mysql/certs:ro
+      - /home/harrison/zabbix-certs:/etc/mysql/certs:ro
     depends_on:
       - mysql
     networks:
