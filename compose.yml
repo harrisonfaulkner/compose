@@ -28,7 +28,7 @@ services:
       - /opt/sonarr/config:/config
       - "nfsmountCC:/mnt/"
     ports:
-      - 8989:8989
+      - 192.168.1.25:8989:8989
     restart: unless-stopped
     depends_on:
       - nfs-health-check
@@ -50,7 +50,7 @@ services:
       - /opt/radarr/config:/config
       - "nfsmountCC:/mnt/"
     ports:
-      - 7878:7878
+      - 192.168.1.25:7878:7878
     restart: unless-stopped
     depends_on:
       - nfs-health-check
@@ -74,7 +74,7 @@ services:
 
       - "nfsmountCC:/mnt/"
     ports:
-      - 8080:8080
+      - 192.168.1.25:8080:8080
     restart: unless-stopped
     depends_on:
       - nfs-health-check
@@ -93,7 +93,7 @@ services:
       - TZ=America/Chicago
       - PORT=5055
     ports:
-      - 5055:5055
+      - 192.168.1.25:5055:5055
     volumes:
       - /opt/overseerr/config:/app/config
     restart: unless-stopped
@@ -114,7 +114,7 @@ services:
     volumes:
       - /opt/prowlarr/config:/config
     ports:
-      - 9696:9696
+      - 192.168.1.25:9696:9696
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
@@ -127,7 +127,7 @@ services:
     image: freshrss/freshrss:latest
     container_name: freshrss
     ports:
-      - "8585:80"
+      - "192.168.1.25:8585:80"
     environment:
       - TRUSTED_PROXY=10.10.10.20/32
       - TZ=America/Chicago
@@ -142,7 +142,7 @@ services:
     container_name: beszel
     restart: unless-stopped
     ports:
-      - 8090:8090
+      - 192.168.1.25:8090:8090
     volumes:
       - /opt/beszel/data:/beszel_data
       - /opt/beszel/socket:/beszel_socket
@@ -212,7 +212,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.scope=scrypted"
     ports:
-      - 10444:8080
+      - 192.168.1.25:10444:8080
     command: --interval 3600 --cleanup --scope scrypted
     dns:
       - ${SCRYPTED_DNS_SERVER_0:-192.168.1.1}
@@ -269,7 +269,7 @@ services:
     image: phpipam/phpipam-www:latest
     container_name: phpipam-web
     ports:
-      - "8081:80"
+      - "192.168.1.25:8081:80"
     environment:
       - TZ=America/Chicago
       - IPAM_DATABASE_HOST=phpipam-mariadb
@@ -309,15 +309,15 @@ services:
     container_name: uptime-kuma
     restart: always
     ports:
-      - "3001:3001"  # This maps the container port "3001" to the host port "3001"
+      - "192.168.1.25:3001:3001"
     volumes:
-      - /opt/uptimekuma:/app/data  # Configuring persistent storage
+      - /opt/uptimekuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - TZ=America/Chicago  # Set the timezone (change to your preferred local timezone so monitoring times are the same)
-      - UMASK=0022  # Set your file permissions manually
+      - TZ=America/Chicago
+      - UMASK=0022
     networks:
-      - kuma_network  # add your own custom network config
+      - kuma_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
@@ -367,7 +367,7 @@ services:
       ZBX_DBTLSCONNECT: required
       ZBX_DBTLSCAFILE: /etc/mysql/certs/ca-cert.pem
     ports:
-      - "10051:10051"
+      - "192.168.1.25:10051:10051"
     volumes:
       - /opt/zabbix-server:/var/lib/zabbix
       - /home/harrison/zabbix-certs:/etc/mysql/certs:ro
@@ -389,7 +389,7 @@ services:
       ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
       PHP_TZ: ${PHP_TZ}
     ports:
-      - "80:8080"
+      - "192.168.1.25:80:8080"
     depends_on:
       - mysql
       - zabbix-server
@@ -404,12 +404,68 @@ services:
     environment:
       ZBX_ALLOWEDIP: zabbix-server
     ports:
-      - "10053:10053"
+      - "192.168.1.25:10053:10053"
     cap_add:
       - SYS_ADMIN
     networks:
       zabbix-network:
         ipv4_address: 172.20.0.5
+
+
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - "192.168.1.25:8086:8086"
+    volumes:
+      - /opt/influxdb/data:/var/lib/influxdb2
+      - /opt/influxdb/config:/etc/influxdb2
+    environment:
+      - TZ=America/Chicago
+      - INFLUXD_SESSION_LENGTH=432000
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  vuegraf:
+    image: jertel/vuegraf:latest
+    container_name: vuegraf
+    restart: unless-stopped
+    volumes:
+      - /opt/vuegraf/conf:/opt/vuegraf/conf
+    environment:
+      - TZ=America/Chicago
+    depends_on:
+      influxdb:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "192.168.1.25:3000:3000"
+    volumes:
+      - /opt/grafana/data:/var/lib/grafana
+      - /opt/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - TZ=America/Chicago
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_INSTALL_PLUGINS=
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 networks:
   kuma_network:
