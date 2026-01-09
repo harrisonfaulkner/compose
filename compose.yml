@@ -467,6 +467,52 @@ services:
       retries: 3
       start_period: 60s
 
+
+  # ===========================================================================
+  # APC UPS Monitoring Services
+  # ===========================================================================
+
+  telegraf-ups-1:
+    image: telegraf:latest
+    container_name: telegraf-ups-1
+    hostname: telegraf-ups-1
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - INFLUXDB_TOKEN=${INFLUXDB_UPS_TOKEN}
+      - INFLUXDB_ORG=${INFLUXDB_ORG}
+      - INFLUXDB_BUCKET=${INFLUXDB_UPS_BUCKET:-ups_metrics}
+    volumes:
+      - /opt/telegraf-ups-1/config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - influxdb
+    healthcheck:
+      test: ["CMD", "telegraf", "--test", "--config", "/etc/telegraf/telegraf.conf"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  telegraf-ups-2:
+    image: telegraf:latest
+    container_name: telegraf-ups-2
+    hostname: telegraf-ups-2
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - INFLUXDB_TOKEN=${INFLUXDB_UPS_TOKEN}
+      - INFLUXDB_ORG=${INFLUXDB_ORG}
+      - INFLUXDB_BUCKET=${INFLUXDB_UPS_BUCKET:-ups_metrics}
+    volumes:
+      - /opt/telegraf-ups-2/config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - influxdb
+    healthcheck:
+      test: ["CMD", "telegraf", "--test", "--config", "/etc/telegraf/telegraf.conf"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 networks:
   kuma_network:
     driver: bridge
